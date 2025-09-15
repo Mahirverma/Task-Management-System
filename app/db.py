@@ -5,7 +5,7 @@ from core.config import settings
 
 
 # ---------- SQLAlchemy Setup ----------
-engine = create_engine(settings.database_url, echo=True, future=True)
+engine = create_engine(settings.DATABASE_URL, echo=True, future=True)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -19,3 +19,5 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Base.metadata.create_all(bind=engine)

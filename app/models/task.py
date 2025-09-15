@@ -27,15 +27,5 @@ class Task(Base):
     due_date = Column(Date)
     completed_at = Column(DateTime(timezone=True))
 
-    # --- Relationships ---
-    creator = relationship("User", foreign_keys=[created_by], back_populates="tasks_created")
-    assignee = relationship("User", foreign_keys=[assigned_to], back_populates="tasks_assigned")
-    logs = relationship("TaskLog", back_populates="task", cascade="all, delete-orphan")
-    time_logs = relationship("TimeLog", back_populates="task", cascade="all, delete-orphan")
-
-    __table_args__ = (
-        Index("idx_task_status", "status"),
-    )
-
     def __repr__(self):
         return f"<Task(uuid={self.uuid}, title={self.title}, status={self.status}, assigned_to={self.assigned_to})>"

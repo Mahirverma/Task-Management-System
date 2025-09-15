@@ -17,14 +17,5 @@ class TimeLog(Base):
     notes = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    # --- Relationships ---
-    task = relationship("Task", back_populates="time_logs")
-    user = relationship("User", back_populates="time_logs")
-
-    __table_args__ = (
-        Index("idx_timelog_task", "task_id"),
-        Index("idx_timelog_user", "user_id"),
-    )
-
     def __repr__(self):
         return f"<TimeLog(id={self.id}, task_id={self.task_id}, user_id={self.user_id}, duration={self.duration_minutes})>"
