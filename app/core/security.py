@@ -1,4 +1,4 @@
-from fastapi import Depends,HTTPException, status
+from fastapi import Depends,HTTPException, status, Cookie
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
@@ -33,9 +33,12 @@ def decode_access_token(token: str):
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalid or expired")
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(access_token: str = Cookie(None), db: Session = Depends(get_db)) -> User:
     # Decode token
-    payload = decode_access_token(token)
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    payload = decode_access_token(access_token)
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

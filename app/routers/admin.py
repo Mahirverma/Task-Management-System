@@ -1,11 +1,12 @@
 # app/routers/manager.py
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, Form, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse,HTMLResponse, RedirectResponse
 from pydantic import EmailStr, BaseModel
 # import uuid
 from datetime import datetime
 
-from sqlalchemy import func
+from sqlalchemy import func, asc, desc
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,8 @@ from passlib.context import CryptContext
 # from core.config import settings
 from db import get_db
 from models.user import User, UserRole
+from models.task import Task, TaskStatus as ts
+from models.task_log import TaskLog, TaskStatus
 from core.security import hash_password,verify_password, get_current_user
 from utils.email_utils import send_email
 from utils.validators import validate_uuid
@@ -26,7 +29,7 @@ from utils.validators import validate_uuid
 #     _redis_client = None
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
+templates = Jinja2Templates(directory="templates")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # def _invalidate_manager_cache(manager_uuid: UUID):
@@ -133,7 +136,10 @@ def update_admin_profile(
 @router.post("/{admin_id}/managers")
 def create_manager(
     admin_id: str = Path(..., description="Admin UUID"),
-    payload: dict = None,
+    username: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    full_name: str = Form(...),
     # background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -142,14 +148,6 @@ def create_manager(
 
     if current_user.id != admin_uuid or current_user.role != UserRole.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the admin can create their managers")
-
-    if not payload:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request body must contain payload")
-
-    username = payload.get("username")
-    email = payload.get("email")
-    password = payload.get("password")
-    full_name = payload.get("full_name","")
 
     if not username or not email or not password:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="username, email and password are required")
@@ -196,18 +194,19 @@ def create_manager(
     #     body = f"Hello {new_user.username},\n\nAn account has been created for you. Please login with your credentials.\n"
     #     background_tasks.add_task(send_email, new_user.email, subject, body)
 
-    resp = {
-        "message": "Manager created successfully",
-        "data": {
-            "uuid": str(new_user.id),
-            "username": new_user.username,
-            "email": new_user.email,
-            "full_name": new_user.full_name,
-            "role": "manager",
-            "created_by": str(new_user.created_by),
-        },
-    }
-    return JSONResponse(status_code=status.HTTP_201_CREATED, content=resp)
+    # resp = {
+    #     "message": "Manager created successfully",
+    #     "data": {
+    #         "uuid": str(new_user.id),
+    #         "username": new_user.username,
+    #         "email": new_user.email,
+    #         "full_name": new_user.full_name,
+    #         "role": "manager",
+    #         "created_by": str(new_user.created_by),
+    #     },
+    # }
+    # return JSONResponse(status_code=status.HTTP_201_CREATED, content=resp)
+    return RedirectResponse(url = f'/admin/dashboard', status_code=303)
 
 
 @router.get("/{admin_id}/managers")
@@ -263,8 +262,9 @@ def list_managers(
     return JSONResponse(status_code=status.HTTP_200_OK, content=resp)
 
 
-@router.get("/{admin_id}/managers/{manager_id}")
+@router.get("/{admin_id}/managers/{manager_id}", response_class=HTMLResponse)
 def get_manager(
+    request: Request,
     admin_id: str = Path(...),
     manager_id: str = Path(...),
     limit: int = Query(40, ge=1),
@@ -284,34 +284,34 @@ def get_manager(
     manager = db.query(User).filter(User.id == manager_uuid, User.role == UserRole.manager, User.created_by == admin_uuid).first()
     if not manager:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found")
+    manager.role = "Manager"
 
     employees = db.query(User).filter(User.created_by == manager_uuid,
         User.role == UserRole.employee,
         User.is_active == True).order_by(User.username).limit(limit).offset(offset).all()
-    
+    for e in employees:
+        e.role = "Employee"
     data = []
-    data.append({
-            "uuid": str(manager.id),
-            "username": manager.username,
-            "email": manager.email,
-            "full_name": manager.full_name,
-            "role": "manager",
-            "employees": [
-                {
-                    "uuid": str(e.id),
-                    "username": e.username,
-                    "email": e.email,
-                    "full_name": e.full_name,
-                    "role": "employee"
-                } for e in employees
-            ]
+    for emp in employees:
+            t = db.query(Task).filter(Task.assigned_to == emp.id).count()
+            data.append({
+            "uuid": str(emp.id),
+            "username": emp.username,
+            "email": emp.email,
+            "full_name": emp.full_name,
+            "role": "employee",
+            "task_count": t,
         })
-
-    resp = {
-        "message": "Manager fetched successfully",
-        "data": data
-    }   
-    return JSONResponse(status_code=status.HTTP_200_OK, content=resp)
+    
+    return templates.TemplateResponse(
+        "admin/manager_detail.html",
+        {
+            "request": request,
+            "manager": manager,
+            "employees": data,
+            "current_user": current_user
+        },
+    )
 
 
 @router.put("/{admin_id}/reset_password")
@@ -449,3 +449,110 @@ def activate_manager(
         "data": {"uuid": str(manager_uuid), "is_active": True},
     }
     return JSONResponse(status_code=status.HTTP_200_OK, content=resp)
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def admin_dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # validate token
+):
+    # ✅ ensure only admin can access
+    if current_user.role != UserRole.admin:
+        return HTMLResponse("<h3>Access Denied</h3>", status_code=403)
+
+    # Fetch managers (same logic you had in /{admin_id}/managers)
+    managers = db.query(User).filter(
+        User.created_by == current_user.id,
+        User.role == UserRole.manager,
+        User.is_active == True
+    ).order_by(asc(User.username)).all()
+
+    data = []
+    all_employees = []
+    all_tasks = []
+    for m in managers:
+        employees = db.query(User).filter(
+        User.created_by == m.id,
+        User.role == UserRole.employee,
+        User.is_active == True
+    ).order_by(asc(User.username)).all()
+
+        data.append({
+        "uuid": str(m.id),
+        "username": m.username,
+        "email": m.email,
+        "full_name": m.full_name,
+        "role": "manager",
+        "employee_count": len(employees),  # 🔹 only count
+        })
+
+        for emp in employees:
+            t = db.query(Task).filter(Task.assigned_to == emp.id).count()
+            all_employees.append({
+            "uuid": str(emp.id),
+            "username": emp.username,
+            "email": emp.email,
+            "full_name": emp.full_name,
+            "role": "employee",
+            "task_count": t,
+            "manager_id": str(m.id),  # optional: to know which manager they belong to
+        })
+        ts_map ={
+            ts.pending: "pending",
+            ts.in_progress: "in progress",
+            ts.completed: "completed"
+        }
+        tasks = db.query(Task).filter(Task.created_by == m.id).all()
+        task_id=[]
+        for t in tasks:
+            task_id.append(t.id)
+            all_tasks.append({
+            "uuid": str(t.id),
+            "title": t.title,           # adjust field names as per your Task model
+            "description": t.description,
+            "created_by_id": str(t.created_by),
+            "created_by_name": m.username,
+            "status": ts_map[t.status],
+        })
+            log_status_map = {
+                TaskStatus.pending: "pending",
+                TaskStatus.in_progress: "in progress",
+                TaskStatus.completed: "completed"
+            }
+            task_logs = db.query(TaskLog).filter(TaskLog.task_id.in_(task_id)).order_by(TaskLog.created_at.desc()).all()
+            logs_list = []
+            for log in task_logs:
+                logs_list.append({
+                "log_id": str(log.id),
+                "task_id": str(log.task_id),
+                "task_name": t.title,
+                "status": log_status_map[log.status],
+                "timestamp": log.created_at.isoformat()
+            })
+
+    # Render the dashboard template
+    return templates.TemplateResponse(
+        "admin/dashboard.html",
+        {"request": request, "managers": data, "employees": all_employees, "tasks": all_tasks, "task_log": logs_list, "current_user": current_user}
+    )
+
+@router.get("/{admin_id}/create-manager")
+def create_manager_page(
+    request: Request,
+    admin_id: str = Path(..., description="Admin UUID"),
+    current_user: User = Depends(get_current_user)
+):
+    # Optional: verify that current_user is the same admin
+    print(111111111111111111111111)
+    print(current_user.id)
+    print(current_user.role)
+    print(222222222222222222222222)
+    print(admin_id)
+    if str(current_user.id) != str(admin_id) or current_user.role != UserRole.admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    return templates.TemplateResponse(
+        "admin/create_manager.html",
+        {"request": request, "admin_id": admin_id}
+    )

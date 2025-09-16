@@ -1,6 +1,7 @@
 # app/routers/manager.py
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, Request, Form
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from pydantic import EmailStr, BaseModel
 # import uuid
 from datetime import datetime
@@ -26,7 +27,7 @@ from utils.validators import validate_uuid
 #     _redis_client = None
 
 router = APIRouter(prefix="/manager", tags=["Manager"])
-
+templates = Jinja2Templates(directory="templates")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # def _invalidate_manager_cache(manager_uuid: UUID):
@@ -248,8 +249,9 @@ def list_employees(
     return JSONResponse(status_code=status.HTTP_200_OK, content=resp)
 
 
-@router.get("/{manager_id}/employees/{employee_id}", summary="Get employee details under manager")
+@router.get("/{manager_id}/employees/{employee_id}", summary="Get employee details under manager", response_class=HTMLResponse)
 def get_employee(
+    request: Request,
     manager_id: str = Path(...),
     employee_id: str = Path(...),
     db: Session = Depends(get_db),
@@ -264,21 +266,19 @@ def get_employee(
     employee = db.query(User).filter(User.id == employee_uuid, User.role == UserRole.employee).first()
     if not employee:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    employee.role = "Employee"
 
     if employee.created_by != manager_uuid and current_user.role != UserRole.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employee does not belong to this manager")
 
-    resp = {
-        "message": "Employee fetched successfully",
-        "data": {
-            "uuid": str(employee.id),
-            "username": employee.username,
-            "email": employee.email,
-            "full_name": employee.full_name,
-            "role": "employee",
-        },
-    }
-    return JSONResponse(status_code=status.HTTP_200_OK, content=resp)
+    return templates.TemplateResponse(
+        "manager/employee_detail.html",
+        {
+            "request": request,
+            "employee": employee,
+            "current_user": current_user
+        }
+    )
 
 
 @router.put("/{manager_id}/reset_password")

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+{% block head %}
+<style>
+    .container{
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="col-md-5">
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <h3 class="mb-4 text-center">Login</h3>
+            {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+            {% if message %}
+                <div class="alert alert-success">{{ message }}</div>
+            {% endif %}
+            <form method="post" action="/auth/login">
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email address</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Login</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

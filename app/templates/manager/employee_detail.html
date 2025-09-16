@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Detail{% endblock %}
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #4A90E2; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+  <div class="container-fluid">
+    <!-- Page title on the left -->
+    <a class="navbar-brand fw-bold" href="/admin/dashboard">Admin Dashboard</a>
+
+    <!-- Right-aligned logout link -->
+    <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link text-danger fw-bold" href="/logout">Logout</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<br>
+<br>
+
+<div class="card shadow-sm mb-4 mx-3">
+    <div class="card-header bg-primary text-white">
+         <h1>Employee</h1>
+    </div>
+    <div class="card-body">
+        <p><strong>Username:</strong> <span class="text-muted">{{ employee.username }}</span></p>
+        <p><strong>Email:</strong> <span class="text-muted">{{ employee.email }}</span></p>
+        <p><strong>Full Name:</strong> <span class="text-muted">{{ employee.full_name }}</span></p>
+        <p><strong>Role:</strong> 
+            <span class="badge bg-info text-dark">{{ employee.role }}</span>
+        </p>
+    </div>
+</div>
+
+{% endblock %}
