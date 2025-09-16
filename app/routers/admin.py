@@ -300,6 +300,7 @@ def get_manager(
             "email": emp.email,
             "full_name": emp.full_name,
             "role": "employee",
+            "manager_id": emp.created_by,
             "task_count": t,
         })
     

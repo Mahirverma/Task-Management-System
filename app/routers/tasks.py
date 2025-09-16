@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Path, Depends, HTTPException, status, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Path, Depends, HTTPException, status, Query, Request, Form
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.exc import OperationalError, IntegrityError
 from sqlalchemy.orm import Session
 from db import get_db
@@ -24,6 +25,8 @@ employee_tasks_router = APIRouter(
     prefix="/employee/{employee_id}/tasks",
     tags=["Employee Tasks"]
 )
+
+templates = Jinja2Templates(directory="templates")
 
 # ----------------- Endpoints -----------------
 
@@ -227,7 +230,7 @@ def list_manager_tasks(
     })
 
 
-@manager_tasks_router.get("/{task_id}")
+@manager_tasks_router.get("/{task_id}", response_class=HTMLResponse)
 def get_task(
     task_id: str = Path(...),
     db: Session = Depends(get_db),
