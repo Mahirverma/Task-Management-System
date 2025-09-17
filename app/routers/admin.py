@@ -8,7 +8,7 @@ from datetime import datetime
 
 from sqlalchemy import func, asc, desc
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from passlib.context import CryptContext
 
@@ -31,6 +31,7 @@ from utils.validators import validate_uuid
 router = APIRouter(prefix="/admin", tags=["Admin"])
 templates = Jinja2Templates(directory="templates")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+creator = aliased(User)
 
 # def _invalidate_manager_cache(manager_uuid: UUID):
 #     """Invalidate Redis keys used for manager employee lists. Implement key naming consistently with your cache usage."""
@@ -47,59 +48,55 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ----------------- Endpoints -----------------
 
-@router.patch("/{admin_id}/profile")
+@router.post("/{admin_id}/profile")
 def update_admin_profile(
+    request: Request,
     admin_id: str = Path(..., description="Admin UUID"),
-    payload: dict = None,
+    username: str = Form(None),
+    email: str = Form(None),
+    full_name: str = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     admin_uuid = validate_uuid(admin_id)
 
+    # only the admin themselves may update their profile via the HTML form
     if current_user.id != admin_uuid:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot update another admin's profile")
 
-    if not payload:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request body must contain payload")
+    if not any([username, email, full_name]):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one field (username, email or full_name) is required")
 
-    username = payload.get("username")
-    email = payload.get("email")
-    full_name = payload.get("full_name")
-
-    # Start a DB transaction and lock the row for update to prevent concurrent writes
     try:
-        # lock the manager row
         admin_row = db.query(User).filter(User.id == admin_uuid).with_for_update().first()
-
         if not admin_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admin not found")
 
-        # Apply changes after validations
         if email:
-            # validate email format via pydantic EmailStr
-            email = email.strip()
+            email_val = email.strip()
             class TempEmailModel(BaseModel):
                 email: EmailStr
             try:
-                TempEmailModel(email=email)
-            except ValueError:
+                TempEmailModel(email=email_val)
+            except Exception:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
 
-            existing = db.query(User).filter(func.lower(User.email) == email.lower(), User.id == admin_uuid).first()
+            # ensure no other user has this email
+            existing = db.query(User).filter(func.lower(User.email) == email_val.lower(), User.id != admin_uuid).first()
             if existing:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
 
-            admin_row.email = email.strip().lower()
+            admin_row.email = email_val.lower()
 
         if username:
-            username = username.strip()
-            existing = db.query(User).filter(func.lower(User.username) == username.lower(), User.id == admin_uuid).first()
+            username_val = username.strip()
+            existing = db.query(User).filter(func.lower(User.username) == username_val.lower(), User.id != admin_uuid).first()
             if existing:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already in use")
-            admin_row.username = username
+            admin_row.username = username_val
 
-        if full_name:
-            admin_row.full_name = full_name.strip()
+        if full_name is not None:
+            admin_row.full_name = full_name.strip() if full_name else None
 
         db.add(admin_row)
         db.commit()
@@ -108,7 +105,7 @@ def update_admin_profile(
     except OperationalError:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Database is busy, try again")
-    except IntegrityError as e:
+    except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conflict during update")
     except HTTPException:
@@ -117,20 +114,21 @@ def update_admin_profile(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-    # Invalidate redis cache for this manager
-    # _invalidate_manager_cache(manager_uuid)
+    # After successful update redirect back to the profile page so the template can show updated data
+    return RedirectResponse(url=f"/admin/dashboard", status_code=303)
 
-    resp = {
-        "message": "Admin profile updated successfully",
-        "data": {
-            "uuid": str(admin_row.id),
-            "username": admin_row.username,
-            "email": admin_row.email,
-            "full_name": admin_row.full_name,
-            "role": admin_row.role.value if hasattr(admin_row.role, "value") else str(admin_row.role),
-        },
-    }
-    return JSONResponse(status_code=status.HTTP_200_OK, content=resp)
+
+@router.get("/{admin_id}/profile", response_class=HTMLResponse)
+def admin_profile(request: Request, admin_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    admin_uuid = validate_uuid(admin_id)
+    if current_user.id != admin_uuid and current_user.role != UserRole.admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this profile")
+
+    user = db.query(User).filter(User.id == admin_uuid).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admin not found")
+
+    return templates.TemplateResponse("admin/profile.html", {"request": request, "current_user": current_user, "user": user})
 
 
 @router.post("/{admin_id}/managers")
@@ -293,7 +291,8 @@ def get_manager(
         e.role = "Employee"
     data = []
     for emp in employees:
-            t = db.query(Task).filter(Task.assigned_to == emp.id).count()
+            # fetch tasks for this employee (small summary)
+            emp_tasks = db.query(Task).filter(Task.assigned_to == emp.id).order_by(Task.created_at.desc()).all()
             data.append({
             "uuid": str(emp.id),
             "username": emp.username,
@@ -301,7 +300,16 @@ def get_manager(
             "full_name": emp.full_name,
             "role": "employee",
             "manager_id": emp.created_by,
-            "task_count": t,
+            "task_count": len(emp_tasks),
+            "tasks": [
+                {
+                    "uuid": str(t.id),
+                    "title": t.title,
+                    "description": t.description,
+                    "status": t.status.value,
+                    "due_date": t.due_date.isoformat() if t.due_date else None
+                } for t in emp_tasks
+            ]
         })
     
     return templates.TemplateResponse(
@@ -315,7 +323,7 @@ def get_manager(
     )
 
 
-@router.put("/{admin_id}/reset_password")
+@router.post("/{admin_id}/reset_password")
 def reset_admin_password(
     admin_id: str = Path(...),
     payload: dict = None,
@@ -408,7 +416,7 @@ def deactivate_manager(
     }
     return JSONResponse(status_code=status.HTTP_200_OK, content=resp)
 
-@router.patch("/{admin_id}/users/{manager_id}/activate")
+@router.patch("/{admin_id}/managers/{manager_id}/activate")
 def activate_manager(
     admin_id: str = Path(...),
     manager_id: str = Path(...),
@@ -465,8 +473,7 @@ def admin_dashboard(
     # Fetch managers (same logic you had in /{admin_id}/managers)
     managers = db.query(User).filter(
         User.created_by == current_user.id,
-        User.role == UserRole.manager,
-        User.is_active == True
+        User.role == UserRole.manager
     ).order_by(asc(User.username)).all()
 
     data = []
@@ -476,7 +483,6 @@ def admin_dashboard(
         employees = db.query(User).filter(
         User.created_by == m.id,
         User.role == UserRole.employee,
-        User.is_active == True
     ).order_by(asc(User.username)).all()
 
         data.append({
@@ -486,6 +492,7 @@ def admin_dashboard(
         "full_name": m.full_name,
         "role": "manager",
         "employee_count": len(employees),  # 🔹 only count
+        "is_active": m.is_active,
         })
 
         for emp in employees:
@@ -545,15 +552,165 @@ def create_manager_page(
     current_user: User = Depends(get_current_user)
 ):
     # Optional: verify that current_user is the same admin
-    print(111111111111111111111111)
-    print(current_user.id)
-    print(current_user.role)
-    print(222222222222222222222222)
-    print(admin_id)
     if str(current_user.id) != str(admin_id) or current_user.role != UserRole.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     return templates.TemplateResponse(
         "admin/create_manager.html",
         {"request": request, "admin_id": admin_id}
+    )
+
+@router.get("/managers", response_class=HTMLResponse)
+def managers_table(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # validate token
+):
+    # ✅ ensure only admin can access
+    if current_user.role != UserRole.admin:
+        return HTMLResponse("<h3>Access Denied</h3>", status_code=403)
+
+    # Fetch managers (same logic you had in /{admin_id}/managers)
+    managers = db.query(User).filter(
+        User.created_by == current_user.id,
+        User.role == UserRole.manager
+    ).order_by(asc(User.username)).all()
+
+    data = []
+    for m in managers:
+        employees = db.query(User).filter(
+        User.created_by == m.id,
+        User.role == UserRole.employee,
+    ).order_by(asc(User.username)).all()
+
+        data.append({
+        "uuid": str(m.id),
+        "username": m.username,
+        "email": m.email,
+        "full_name": m.full_name,
+        "role": "manager",
+        "employee_count": len(employees),  # 🔹 only count
+        "is_active": m.is_active,
+        })
+
+    # Render the dashboard template
+    return templates.TemplateResponse(
+        "admin/managers.html",
+        {"request": request, "managers": data, "current_user": current_user}
+    )
+
+@router.get("/employees", response_class=HTMLResponse)
+def employees(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # validate token
+):
+    # ✅ ensure only admin can access
+    if current_user.role != UserRole.admin:
+        return HTMLResponse("<h3>Access Denied</h3>", status_code=403)
+
+    # Fetch all employees under this admin's managers
+    manager_ids = [
+    mid for (mid,) in db.query(User.id)
+                      .filter(
+                          User.created_by == current_user.id,
+                          User.role == UserRole.manager,
+                          User.is_active == True
+                      ).all()
+]
+    if not manager_ids:
+        employees = []
+    else:
+        employees = (
+        db.query(User)
+          .filter(
+              User.role == UserRole.employee,
+              User.is_active == True,
+              User.created_by.in_(manager_ids)
+          )
+          .order_by(asc(User.username))
+          .all())
+
+    data = []
+    for emp in employees:
+        manager = db.query(User).filter(User.id == emp.created_by, User.role == UserRole.manager).first()
+        t = db.query(Task).filter(Task.assigned_to == emp.id).count()
+        manager_name = manager.username if manager else "N/A"
+        data.append({
+            "uuid": str(emp.id),
+            "username": emp.username,
+            "email": emp.email,
+            "full_name": emp.full_name,
+            "role": "employee",
+            "manager_id": str(emp.created_by),
+            "manager_name": manager_name,
+            "is_active": emp.is_active,
+            "task_count": t,
+        })
+
+    # Render the employees template
+    return templates.TemplateResponse(
+        "admin/employees.html",
+        {"request": request, "employees": data, "current_user": current_user}
+    )
+
+@router.get("/tasks", response_class=HTMLResponse)
+def tasks(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # validate token
+): 
+    # ✅ ensure only admin can access
+    if current_user.role != UserRole.admin:
+        return HTMLResponse("<h3>Access Denied</h3>", status_code=403)
+
+    # Fetch all tasks created by this admin or their managers
+    manager_ids = [
+        mid for (mid,) in db.query(User.id)
+                          .filter(
+                              User.created_by == current_user.id,
+                              User.role == UserRole.manager,
+                              User.is_active == True
+                          ).all()
+    ]
+    if not manager_ids:
+        tasks = []
+    else:
+        tasks = (
+            db.query(Task)
+              .filter(
+                  Task.created_by.in_(manager_ids)
+              )
+              .order_by(desc(Task.created_at))
+              .all()
+        )
+
+    ts_map ={
+            ts.pending: "pending",
+            ts.in_progress: "in progress",
+            ts.completed: "completed"
+        }
+    data = []
+    for t in tasks:
+        creator = db.query(User).filter(User.id == t.created_by).first()
+        assignee = db.query(User).filter(User.id == t.assigned_to).first()
+        creator_name = creator.username if creator else "N/A"
+        assignee_name = assignee.username if assignee else "Unassigned"
+        data.append({
+            "uuid": str(t.id),
+            "title": t.title,
+            "description": t.description,
+            "status": ts_map[t.status],
+            "due_date": t.due_date.isoformat() if t.due_date else None,
+            "created_at": t.created_at.isoformat(),
+            "created_by_id": str(t.created_by),
+            "created_by_name": creator_name,
+            "assigned_to_id": str(t.assigned_to) if t.assigned_to else None,
+            "assigned_to_name": assignee_name,
+        })
+
+    # Render the tasks template
+    return templates.TemplateResponse(
+        "admin/tasks.html",
+        {"request": request, "tasks": data, "current_user": current_user}
     )

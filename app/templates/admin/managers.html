@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %} Admin Dashboard{% endblock %}
+{% block content %}
+
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #4A90E2; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+  <div class="container-fluid">
+        <div class="d-flex align-items-center">
+            <button class="btn btn-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+        onclick="history.back()" style="width: 40px; height: 40px;">
+  <i class="bi bi-arrow-left"></i>
+</button>
+            <a class="navbar-brand fw-bold" href="/manager/dashboard">Dashboard</a>
+        </div>
+    <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
+      <ul class="navbar-nav">
+    <li class="nav-item"><a class="nav-link text-danger fw-bold" href="/auth/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="dashboard-header">
+    <h2>My Managers</h2>
+    <div>
+    <a href="/admin/{{ current_user.id }}/create-manager" class="btn btn-primary">Create New Manager</a>
+    </div>
+</div>
+
+<table class="styled-table">
+    <thead>
+        <tr>
+            <th>S. No.</th>
+            <th>Manager Username</th>
+            <th>Email</th>
+            <th>Full Name</th>
+            <th>Employees</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for manager in managers %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ manager.username }}</td>
+            <td>{{ manager.email }}</td>
+            <td>{{ manager.full_name }}</td>
+            <td>
+                {% if manager.employee_count > 0 %}
+                    {{ manager.employee_count }} employees
+                {% else %}
+                    <span>No employees</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="/admin/{{ current_user.id }}/managers/{{ manager.uuid }}" class="btn btn-edit">View</a>
+                {% if manager.is_active %}
+                    <button class="btn btn-delete" onclick="deactivateManager('{{ current_user.id }}', '{{ manager.uuid }}')"> Deactivate </button>
+                    {% else %}
+                    <button class="btn btn-success" onclick="activateManager('{{ current_user.id }}', '{{ manager.uuid }}')"> Activate </button>
+                    {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+
+async function activateManager(adminId, managerId) {
+    if (!confirm("Are you sure you want to activate this manager?")) return;
+
+    const res = await fetch(`/admin/${adminId}/managers/${managerId}/activate`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" }
+    });
+
+    if (res.ok) {
+        // Refresh the page or remove the row dynamically
+        location.reload();
+    } else {
+        const data = await res.json();
+        alert("Error: " + data.detail);
+    }
+}
+
+async function deactivateManager(adminId, managerId) {
+    if (!confirm("Are you sure you want to deactivate this manager?")) return;
+
+    const res = await fetch(`/admin/${adminId}/users/${managerId}/deactivate`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" }
+    });
+
+    if (res.ok) {
+        // Refresh the page or remove the row dynamically
+        location.reload();
+    } else {
+        const data = await res.json();
+        alert("Error: " + data.detail);
+    }
+}
+</script>
+{% endblock %}

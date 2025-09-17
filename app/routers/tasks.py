@@ -232,6 +232,7 @@ def list_manager_tasks(
 
 @manager_tasks_router.get("/{task_id}", response_class=HTMLResponse)
 def get_task(
+    request: Request,
     task_id: str = Path(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -246,17 +247,13 @@ def get_task(
     if current_user.role == UserRole.manager and current_user.id != task.created_by:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    return JSONResponse(status_code=200, content={
-        "message": "Task fetched successfully",
-        "data": {
-            "uuid": str(task.id),
-            "title": task.title,
-            "description": task.description,
-            "status": task.status.value,
-            "assigned_to": str(task.assigned_to),
-            "created_by": str(task.created_by),
-        }
-    })
+    # Render a template for manager viewing a task
+    # resolve assigned user display name
+    assigned_user = None
+    if task.assigned_to:
+        assigned_user = db.query(User).filter(User.id == task.assigned_to).first()
+    assigned_to_name = assigned_user.username if assigned_user else None
+    return templates.TemplateResponse("task_detail.html", {"request": request, "task": task, "assigned_to_name": assigned_to_name, "current_user": current_user})
 
 @manager_tasks_router.delete("/{task_id}")
 def delete_task(
@@ -271,7 +268,7 @@ def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     # Only manager or assigned employee can delete
-    if current_user.role == UserRole.manager and current_user.id == task.created_by:
+    if current_user.role != UserRole.manager and current_user.id != task.created_by:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     try:
@@ -292,11 +289,11 @@ def delete_task(
 # -------- Employee's Task API -----------------
 
 
-@employee_tasks_router.patch("/{task_id}")
+@employee_tasks_router.post("/{task_id}")
 def update_task(
     employee_id: str = Path(...),
     task_id: str = Path(...),
-    payload: dict = None,
+    status: str = Form(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -305,13 +302,9 @@ def update_task(
 
     if current_user.id != employee_uuid or current_user.role != UserRole.employee:
         raise HTTPException(status_code=403, detail="Not authorized")
-    if not payload:
-        raise HTTPException(status_code=400, detail="Request body must contain payload")
 
-    try:
-        status = payload["status"]
-    except:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    if status not in ["pending", "in-progress", "in progress", "completed"]:
+        raise HTTPException(status_code=400, detail="Invalid status value")
 
     employee = db.query(User).filter(User.id == employee_id, User.role == UserRole.employee).first()
     manager_uuid = employee.created_by
@@ -353,20 +346,12 @@ def update_task(
 
     # _invalidate_manager_cache(manager_uuid)
 
-    return JSONResponse(status_code=200, content={
-        "message": "Task status updated successfully",
-        "data": {
-            "uuid": str(task.id),
-            "status": task.status.value,
-            "assigned_to": str(task.assigned_to),
-            "title": str(task.title),
-            "dscription": str(task.description)
-        }
-    })
+    return RedirectResponse(url=f"/employee/dashboard", status_code=303)
 
 
 @employee_tasks_router.get("/{task_id}")
 def get_task(
+    request: Request,
     task_id: str = Path(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -381,17 +366,12 @@ def get_task(
     if current_user.role == UserRole.employee and current_user.id != task.assigned_to:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    return JSONResponse(status_code=200, content={
-        "message": "Task fetched successfully",
-        "data": {
-            "uuid": str(task.id),
-            "title": task.title,
-            "description": task.description,
-            "status": task.status.value,
-            "assigned_to": str(task.assigned_to),
-            "created_by": str(task.created_by),
-        }
-    })
+    # Render a template for employee viewing a task
+    assigned_user = None
+    if task.assigned_to:
+        assigned_user = db.query(User).filter(User.id == task.assigned_to).first()
+    assigned_to_name = assigned_user.username if assigned_user else None
+    return templates.TemplateResponse("task_detail.html", {"request": request, "task": task, "assigned_to_name": assigned_to_name, "current_user": current_user})
 
 @employee_tasks_router.get("")
 def list_employee_tasks(
@@ -429,3 +409,22 @@ def list_employee_tasks(
         "message": "Tasks fetched successfully",
         "data": data
     })
+
+@employee_tasks_router.get("/{task_id}/edit", response_class=HTMLResponse)
+def edit_task(
+    request: Request,
+    task_id: str = Path(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task_uuid = validate_uuid(task_id)
+
+    task = db.query(Task).filter(Task.id == task_uuid).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Only assigned employee can edit
+    if current_user.role == UserRole.employee and current_user.id != task.assigned_to:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return templates.TemplateResponse("employee/edit_task.html", {"request": request, "task": task, "current_user": current_user})

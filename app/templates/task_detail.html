@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Task Detail{% endblock %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #4A90E2; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+  <div class="container-fluid">
+    <div class="d-flex align-items-center">
+      <button class="btn btn-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+        onclick="history.back()" style="width: 40px; height: 40px;">
+  <i class="bi bi-arrow-left"></i>
+</button>
+      <a class="navbar-brand fw-bold" href="#">Dashboard</a>
+    </div>
+    <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link text-danger fw-bold" href="/auth/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4>{{ task.title }}</h4>
+        </div>
+        <div class="card-body">
+            <p><strong>Description:</strong></p>
+            <p>{{ task.description }}</p>
+            <p><strong>Status:</strong> {{ task.status }}</p>
+            <p><strong>Assigned To:</strong> {{ assigned_to_name if assigned_to_name else task.assigned_to }}</p>
+            <p><strong>Due Date:</strong> {{ task.due_date if task.due_date else '—' }}</p>
+
+            {% if current_user.role == 'manager' %}
+            <div class="mt-3">
+                <a href="#" class="btn btn-edit">Edit</a>
+                <button class="btn btn-delete" onclick="if(confirm('Delete task?')){ fetch('/manager/{{ task.created_by }}/tasks/{{ task.id }}', { method: 'DELETE' }).then(r=>{ if(r.ok) location.href='/manager/dashboard' }) }">Delete</button>
+            </div>
+            {% endif %}
+
+            {% if current_user.role == 'employee' %}
+            <div class="mt-3">
+                <button class="btn btn-primary" onclick="updateTaskStatus('{{ current_user.id }}', '{{ task.id }}', 'in-progress')">Mark In Progress</button>
+                <button class="btn btn-primary" onclick="updateTaskStatus('{{ current_user.id }}', '{{ task.id }}', 'completed')">Mark Complete</button>
+            </div>
+            {% endif %}
+      <!-- <div class="mt-3">
+        <button class="btn btn-light" onclick="history.back()">&larr; Back</button>
+      </div> -->
+        </div>
+    </div>
+</div>
+{% endblock %}

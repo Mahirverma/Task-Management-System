@@ -1,0 +1,17 @@
+/* site.css - shared styles for the app */
+body { background-color: #f8fafc; color: #222 }
+.navbar-brand { font-weight: 700 }
+.card { border-radius: 8px }
+.styled-table { width:90%; margin:20px auto; border-collapse:collapse; border-radius:10px; overflow:hidden; box-shadow:0 5px 15px rgba(0,0,0,0.06); background:#fff }
+.styled-table th, .styled-table td { padding:14px 18px }
+.styled-table thead { background:#1e2732; color:#fff; font-weight:600 }
+.styled-table tbody tr:nth-of-type(even) { background:#f3f3f3 }
+.btn { border-radius:6px }
+.btn-primary { background:#2f80ed; color:#fff }
+.btn-edit { background:#f9ca24; color:#222 }
+.btn-delete { background:#eb4d4b; color:#fff }
+.card-header.bg-primary { background:#4A90E2 }
+
+@media (max-width:900px) {
+  .styled-table { width:100%; font-size:0.95rem }
+}

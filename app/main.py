@@ -1,7 +1,21 @@
-from fastapi import FastAPI
-from routers import auth, manager, tasks,admin, employee
+from fastapi import FastAPI, APIRouter, Request, Depends
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+import logging
+from fastapi.staticfiles import StaticFiles
+from routers import auth, manager, tasks, admin, employee
+from db import Base, engine, get_db
+from core.security import get_current_user
+from sqlalchemy.orm import Session
+from models.user import User
 
 app = FastAPI(title="Task Management System API")
+
+Base.metadata.create_all(bind=engine)
+templates = Jinja2Templates(directory="templates")
+
+# Basic logging setup to help local debugging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 
 # include routers
 app.include_router(auth.router)
@@ -11,6 +25,14 @@ app.include_router(employee.router)
 app.include_router(tasks.manager_tasks_router)
 app.include_router(tasks.employee_tasks_router)
 
-@app.get("/")
-def root():
-    return {"message": "API is running!"}
+# Serve static JS/CSS from templates folders so frontend assets are available
+app.mount("/js", StaticFiles(directory="templates/js"), name="js")
+app.mount("/css", StaticFiles(directory="templates/css"), name="css")
+
+@app.get("/", response_class=HTMLResponse)
+def root(request: Request, db: Session = Depends(get_db)):
+    try:
+        current_user = get_current_user(request, db)
+    except:
+        current_user = None
+    return templates.TemplateResponse("index.html", {"request": request, "current_user": current_user})

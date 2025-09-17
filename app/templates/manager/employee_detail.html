@@ -5,13 +5,21 @@
 <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #4A90E2; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
   <div class="container-fluid">
     <!-- Page title on the left -->
-    <a class="navbar-brand fw-bold" href="/admin/dashboard">Admin Dashboard</a>
+        <div class="d-flex align-items-center">
+            <!-- Back Button -->
+<button class="btn btn-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+        onclick="history.back()" style="width: 40px; height: 40px;">
+  <i class="bi bi-arrow-left"></i>
+</button>
+
+            <a class="navbar-brand fw-bold" href="/manager/dashboard">Dashboard</a>
+        </div>
 
     <!-- Right-aligned logout link -->
     <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
       <ul class="navbar-nav">
         <li class="nav-item">
-          <a class="nav-link text-danger fw-bold" href="/logout">Logout</a>
+          <a class="nav-link text-danger fw-bold" href="/auth/logout">Logout</a>
         </li>
       </ul>
     </div>
@@ -22,17 +30,118 @@
 <br>
 
 <div class="card shadow-sm mb-4 mx-3">
-    <div class="card-header bg-primary text-white">
-         <h1>Employee</h1>
-    </div>
-    <div class="card-body">
-        <p><strong>Username:</strong> <span class="text-muted">{{ employee.username }}</span></p>
-        <p><strong>Email:</strong> <span class="text-muted">{{ employee.email }}</span></p>
-        <p><strong>Full Name:</strong> <span class="text-muted">{{ employee.full_name }}</span></p>
-        <p><strong>Role:</strong> 
-            <span class="badge bg-info text-dark">{{ employee.role }}</span>
-        </p>
-    </div>
+        <div class="card-header bg-primary text-white">
+                 <h1>Employee</h1>
+        </div>
+        <div class="card-body"></div>
+                <p><strong>Username:</strong> <span class="text-muted">{{ employee.username }}</span></p>
+                <p><strong>Email:</strong> <span class="text-muted">{{ employee.email }}</span></p>
+                <p><strong>Full Name:</strong> <span class="text-muted">{{ employee.full_name }}</span></p>
+                <p><strong>Role:</strong> 
+                        <span class="badge bg-info text-dark">{{ employee.role }}</span>
+                </p>
+        </div>
 </div>
 
+        <div class="dashboard-header"></div>
+            <h2>Tasks</h2>
+        </div>
+
+        <table class="styled-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Title</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th>Due</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if tasks %}
+          {% for t in tasks %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ t.title }}</td>
+            <td>{{ t.description }}</td>
+            <td>{{ t.status }}</td>
+            <td>{{ t.due_date if t.due_date else '—' }}</td>
+            <td>
+              <a href="/manager/tasks/{{ t.uuid }}" class="btn btn-edit">View</a>
+                {% if role == 'manager' %}
+                    <a href="/manager/tasks/{{ t.uuid }}/edit" class="btn btn-success">Update</a>
+                {% elif role == 'employee' %}
+                    <a href="/employee/tasks/{{ t.uuid }}/edit" class="btn btn-success">Update</a>
+                {% endif %}
+              <button class="btn btn-delete" onclick="deleteTask('{{ current_user.id }}', '{{ t.uuid }}')"> Delete </button>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="6" class="text-center">No tasks assigned</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+
+    <br>
+
+        <div class="dashboard-header">
+            <h2>Time Logs</h2>
+        </div>
+
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Task</th>
+                    <th>Date</th>
+                    <th>Duration</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if time_logs %}
+                    {% for tl in time_logs %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            {{ tl.task }}
+                        </td>
+                        <td>
+                            {{ tl.date }}
+                        </td>
+                        <td>{{ tl.duration }}</td>
+                        <td>{{ tl.notes[:10] ~ '...' if tl.notes|length > 10 else tl.notes }}</td>
+                        <td>
+                            <a href="/employee/{{ tl.user_id }}/time-logs/{{ tl.uuid }}" class="btn btn-primary btn-sm">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="7" class="text-center">No time logs available</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+
+    <script>
+        async function deleteTask(managerId, taskId) {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+
+    const res = await fetch(`/manager/${managerId}/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" }
+    });
+
+    if (res.ok) {
+        // Refresh the page or remove the row dynamically
+        location.reload();
+    } else {
+        const data = await res.json();
+        alert("Error: " + data.detail);
+    }
+}
+</script>
 {% endblock %}

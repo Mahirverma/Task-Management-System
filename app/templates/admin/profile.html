@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Profile{% endblock %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #4A90E2; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+  <div class="container-fluid">
+        <div class="d-flex align-items-center">
+                 <button class="btn btn-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+        onclick="history.back()" style="width: 40px; height: 40px;">
+  <i class="bi bi-arrow-left"></i>
+</button>
+            <a class="navbar-brand fw-bold" href="/admin/dashboard">Admin Profile</a>
+        </div>
+
+    <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link text-danger fw-bold" href="/auth/logout">Logout</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-4">
+    <h2>Profile</h2>
+   <form method="post" action="/admin/{{ current_user.id }}/profile">
+  <div class="card shadow-sm">
+    <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label"><strong>Username:</strong></label>
+                <input type="text" class="form-control" name="username" value="{{ user.username if user else current_user.username }}" required>
+            </div>
+             
+            <div class="mb-3">
+                <label class="form-label"><strong>Full Name:</strong></label>
+                <input type="text" class="form-control" name="full_name" value="{{ user.full_name if user else current_user.full_name }}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label"><strong>Email:</strong></label>
+                <input type="email" class="form-control" name="email" value="{{ user.email if user else current_user.email }}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label"><strong>Password:</strong></label>
+                <div>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                        Change Password
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Update Profile</button>
+        </div>
+    </div>
+   </form>
+
+            <!-- Change Password Modal (moved outside the form so its required inputs don't block profile submission) -->
+            <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title" id="changePasswordModalLabel">Change Password</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      <div id="changePasswordAlert" class="alert d-none" role="alert"></div>
+
+                      <div class="mb-3">
+                        <label for="currentPassword" class="form-label">Current Password</label>
+                        <input type="password" class="form-control" id="currentPassword" name="current_password" required>
+                      </div>
+                      <div class="mb-3">
+                        <label for="newPassword" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="newPassword" name="new_password" required>
+                      </div>
+                      <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirm_password" required>
+                      </div>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                      <!-- Use a button with type="button" so it won't submit the outer profile form -->
+                      <button type="button" id="changePasswordSubmit" class="btn btn-primary">Update Password</button>
+                    </div>
+                </div>
+              </div>
+            </div>  
+</div>
+
+<script>
+            (function(){
+              const submitBtn = document.getElementById('changePasswordSubmit');
+              const alertEl = document.getElementById('changePasswordAlert');
+              const modalEl = document.getElementById('changePasswordModal');
+
+              function showAlert(message, type='danger') {
+                alertEl.className = 'alert alert-' + type;
+                alertEl.textContent = message;
+                alertEl.classList.remove('d-none');
+              }
+
+              function clearFields() {
+                document.getElementById('currentPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+                alertEl.classList.add('d-none');
+              }
+
+              submitBtn.addEventListener('click', async function(e){
+                e.preventDefault();
+                e.stopPropagation();
+
+                const current_password = document.getElementById('currentPassword').value.trim();
+                const new_password = document.getElementById('newPassword').value.trim();
+                const confirm_password = document.getElementById('confirmPassword').value.trim();
+
+                if (!current_password || !new_password || !confirm_password) {
+                  showAlert('Please fill all password fields.', 'warning');
+                  return;
+                }
+
+                if (new_password !== confirm_password) {
+                  showAlert('New password and confirmation do not match.', 'warning');
+                  return;
+                }
+
+                const endpoint = '/admin/{{ current_user.id }}/reset_password';
+
+                try {
+                  const res = await fetch(endpoint, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password, new_password })
+                  });
+
+                  if (res.ok) {
+                    showAlert('Password updated successfully.', 'success');
+                    // close modal after short delay
+                    setTimeout(() => {
+                      const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                      modal.hide();
+                      clearFields();
+                    }, 900);
+                  } else {
+                    let data;
+                    try { data = await res.json(); } catch (err) { data = {}; }
+                    showAlert(data.message || 'Failed to update password.');
+                  }
+                } catch (err) {
+                  showAlert('Network error. Please try again.');
+                }
+              });
+
+              // Clear alerts/fields when modal is hidden
+              modalEl.addEventListener('hidden.bs.modal', clearFields);
+            })();
+            </script>
+{% endblock %}

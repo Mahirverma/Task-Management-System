@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Task{% endblock %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #4A90E2; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+  <div class="container-fluid">
+    <!-- Page title on the left -->
+        <div class="d-flex align-items-center">
+            <!-- Back Button -->
+<button class="btn btn-light rounded-circle d-flex align-items-center justify-content-center me-2" 
+        onclick="history.back()" style="width: 40px; height: 40px;">
+  <i class="bi bi-arrow-left"></i>
+</button>
+
+            <a class="navbar-brand fw-bold" href="/manager/tasks/{{ task.id }}/edit">Edit Task</a>
+        </div>
+
+    <!-- Right-aligned logout link -->
+    <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link text-danger fw-bold" href="/auth/logout">Logout</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h3 class="mb-4">Edit Task</h3>
+            <form method="POST" action="/manager/tasks/{{ task.id|string }}/edit">         
+                <div class="mb-3">
+                    <label for="title" class="form-label">Title</label>
+                    <input type="text" class="form-control" id="title" name="title" value="{{ task.title }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="4" required>{{ task.description }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="due_date" class="form-label">Due Date</label>
+                    <input type="date" class="form-control" id="due_date" name="due_date" value="{{ task.due_date.isoformat() if task.due_date else '' }}">
+                </div>
+                <div class="mb-3">
+                    <label for="assigned_to" class="form-label">Assign To</label>
+                    <select class="form-select" id="assigned_to" name="assigned_to">
+                        <option value="" {% if not task.assigned_to %}selected{% endif %}>Unassigned</option>
+                        {% for emp in employees %}
+                            <option value="{{ emp.id }}" {% if task.assigned_to == emp.id %}selected{% endif %}>{{ emp.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a href="/manager/dashboard" class="btn btn-secondary ms-2">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

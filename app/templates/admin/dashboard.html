@@ -55,6 +55,29 @@
     background-color: #ff3e3b;
     color: #fff;
 }
+ .stat-card {
+        width: 250px;
+        height: 180px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 2px solid rgba(255,255,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-8px) scale(1.05) rotateX(5deg) rotateY(5deg);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+    }
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #007bff, #0056b3);
+    }
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #28a745, #218838);
+    }
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, #dc3545, #a71d2a);
+    }
 .styled-table {
     width: 90%;
     margin: 20px auto 50px auto;
@@ -116,122 +139,67 @@
 {% block content %}
 <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #4A90E2; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
   <div class="container-fluid">
-    <!-- Page title on the left -->
-    <a class="navbar-brand fw-bold" href="/admin/dashboard">Admin Dashboard</a>
+        <!-- Home link + Page title on the left -->
+        <div class="d-flex align-items-center">
+            <a class="btn btn-light rounded-circle d-flex align-items-center justify-content-center mx-3" 
+   href="/" style="width: 40px; height: 40px;">
+  <i class="bi bi-house" style="color: #000; font-size: 20px;"></i>
+</a>
+            <a class="navbar-brand fw-bold" href="/admin/dashboard">Dashboard</a>
+        </div>
 
-    <!-- Right-aligned logout link -->
+    <!-- Right-aligned links: Edit Profile + Logout -->
     <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
-      <ul class="navbar-nav">
+      <ul class="navbar-nav align-items-center">
+        <li class="nav-item me-2">
+          <a class="nav-link text-white fw-bold d-flex align-items-center" href="/admin/{{ current_user.id }}/profile">
+            <i class="bi bi-pencil-square me-1"></i>
+            Edit Profile
+          </a>
+        </li>
         <li class="nav-item">
-          <a class="nav-link text-danger fw-bold" href="/logout">Logout</a>
+          <a class="nav-link text-danger fw-bold" href="/auth/logout">Logout</a>
         </li>
       </ul>
     </div>
   </div>
 </nav>
 
-<div class="dashboard-header">
-    <h2>Managers</h2>
-    <a href="/admin/{{ current_user.id }}/create-manager" class="btn btn-primary">Create New Manager</a>
+<div class="d-flex justify-content-center gap-4 flex-wrap mt-4">
+    <a href="/admin/managers" class="card-link">
+        <div class="card stat-card shadow border-0 rounded-4 text-center text-white bg-gradient-primary">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                <i class="bi bi-person-badge-fill display-4 mb-3"></i>
+                <h5 class="card-title">Managers</h5>
+                <p class="display-6 fw-bold">{{ managers|length }}</p>
+            </div>
+        </div>
+    </a>
+
+    <!-- Employees Card -->
+    <a href="/admin/employees" class="card-link">
+        <div class="card stat-card shadow border-0 rounded-4 text-center text-white bg-gradient-success">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                <i class="bi bi-people-fill display-4 mb-3"></i>
+                <h5 class="card-title">Employees</h5>
+                <p class="display-6 fw-bold">{{ employees|length }}</p>
+            </div>
+        </div>
+    </a>
+
+    <!-- Tasks Card -->
+    <a href="/admin/tasks" class="card-link">
+        <div class="card stat-card shadow border-0 rounded-4 text-center text-white bg-gradient-danger">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                <i class="bi bi-list-task display-4 mb-3"></i>
+                <h5 class="card-title">Tasks</h5>
+                <p class="display-6 fw-bold">{{ tasks|length }}</p>
+            </div>
+        </div>
+    </a>
+
 </div>
 
-<table class="styled-table">
-    <thead>
-        <tr>
-            <th>S. No.</th>
-            <th>Manager Username</th>
-            <th>Email</th>
-            <th>Full Name</th>
-            <th>Employees</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for manager in managers %}
-        <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ manager.username }}</td>
-            <td>{{ manager.email }}</td>
-            <td>{{ manager.full_name }}</td>
-            <td>
-                {% if manager.employee_count > 0 %}
-                    {{ manager.employee_count }} employees
-                {% else %}
-                    <span>No employees</span>
-                {% endif %}
-            </td>
-            <td>
-                <a href="/admin/{{ current_user.id }}/managers/{{ manager.uuid }}" class="btn btn-edit">View</a>
-                <button class="btn btn-delete" onclick="deactivateManager('{{ current_user.id }}', '{{ manager.uuid }}')"> Delete </button>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-<div class="dashboard-header">
-    <h2>Employees</h2>
-</div>
-<table class="styled-table">
-    <thead>
-        <tr>
-            <th>S. No.</th>
-            <th>Employee Username</th>
-            <th>Email</th>
-            <th>Full Name</th>
-            <th>Tasks</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for emp in employees %}
-        <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ emp.username }}</td>
-            <td>{{ emp.email }}</td>
-            <td>{{ emp.full_name }}</td>
-            <td>
-                {% if emp.task_count > 0 %}
-                    {{ emp.task_count }} tasks
-                {% else %}
-                    <span>No Tasks</span>
-                {% endif %}
-            </td>
-            <td>
-                <a href="/manager/{{ emp.manager_id }}/employees/{{ emp.uuid }}" class="btn btn-edit">View</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-<div class="dashboard-header">
-    <h2>Tasks</h2>
-</div>
-<table class="styled-table">
-    <thead>
-        <tr>
-            <th>S. No.</th>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th>Created By</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for t in tasks %}
-        <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ t.title }}</td>
-            <td>{{ t.description }}</td>
-            <td>{{ t.status }}</td>
-            <td>{{ t.created_by_name }} </td>
-            <td>
-                <a href="/manager/{{ t.created_by_id }}/tasks/ {{ t.id }}" class="btn btn-edit">View</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
 <div class="dashboard-header">
     <h2>Task History</h2>
 </div>
@@ -256,22 +224,4 @@
     </tbody>
 </table>
 
-<script>
-async function deactivateManager(adminId, managerId) {
-    if (!confirm("Are you sure you want to deactivate this manager?")) return;
-
-    const res = await fetch(`/admin/${adminId}/users/${managerId}/deactivate`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" }
-    });
-
-    if (res.ok) {
-        // Refresh the page or remove the row dynamically
-        location.reload();
-    } else {
-        const data = await res.json();
-        alert("Error: " + data.detail);
-    }
-}
-</script>
 {% endblock %}
