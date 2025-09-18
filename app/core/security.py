@@ -1,4 +1,4 @@
-from fastapi import Depends,HTTPException, status, Cookie
+from fastapi import Depends,HTTPException, status, Cookie, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
@@ -68,3 +68,11 @@ def get_current_user(access_token: str = Cookie(None), db: Session = Depends(get
         )
 
     return user
+
+def get_optional_user(access_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)) -> Optional[User]:
+    try:
+        if access_token:
+            return get_current_user(access_token, db)  # reuse your existing logic
+        return None
+    except HTTPException:
+        return None

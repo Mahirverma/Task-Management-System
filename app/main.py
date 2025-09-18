@@ -1,11 +1,12 @@
 from fastapi import FastAPI, APIRouter, Request, Depends
+from typing import Optional
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 import logging
 from fastapi.staticfiles import StaticFiles
 from routers import auth, manager, tasks, admin, employee
 from db import Base, engine, get_db
-from core.security import get_current_user
+from core.security import get_optional_user
 from sqlalchemy.orm import Session
 from models.user import User
 
@@ -30,9 +31,5 @@ app.mount("/js", StaticFiles(directory="templates/js"), name="js")
 app.mount("/css", StaticFiles(directory="templates/css"), name="css")
 
 @app.get("/", response_class=HTMLResponse)
-def root(request: Request, db: Session = Depends(get_db)):
-    try:
-        current_user = get_current_user(request, db)
-    except:
-        current_user = None
+def root(request: Request, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_user)):
     return templates.TemplateResponse("index.html", {"request": request, "current_user": current_user})
