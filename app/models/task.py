@@ -4,7 +4,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
 import enum
-from db import Base
+from app.db import Base
 
 
 class TaskStatus(enum.Enum):

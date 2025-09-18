@@ -43,8 +43,8 @@ It includes:
 
 ### 1. Clone repository
 ```bash
-git clone https://github.com/Mahirverma/Task-Managemt-System-.git
-cd Task-Management-System-
+git clone https://github.com/Mahirverma/Task-Managemt-System.git
+cd Task-Management-System
 ```
 
 ### 2. Creating virtual environment
@@ -74,6 +74,5 @@ python script.py
 
 ### 6. Run the task management app
 ```bash
-cd app
 uvicorn main:app --reload
 ```

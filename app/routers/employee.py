@@ -14,14 +14,14 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
 # from core.config import settings
-from db import get_db
-from models.user import User, UserRole
-from core.security import hash_password,verify_password, get_current_user
-from utils.email_utils import send_email
-from utils.validators import validate_uuid
-from models.time_log import TimeLog
-from models.task import Task, TaskStatus
-from models.time_log import TimeLog
+from app.db import get_db
+from app.models.user import User, UserRole
+from app.core.security import hash_password,verify_password, get_current_user
+from app.utils.email_utils import send_email
+from app.utils.validators import validate_uuid
+from app.models.time_log import TimeLog
+from app.models.task import Task, TaskStatus
+from app.models.time_log import TimeLog
 
 # Optional Redis (for cache invalidation). If not configured, functions will be no-ops.
 # try:
@@ -31,7 +31,7 @@ from models.time_log import TimeLog
 #     _redis_client = None
 
 router = APIRouter(prefix="/employee", tags=["Employee"])
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="app/templates")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # def _invalidate_manager_cache(manager_uuid: UUID):

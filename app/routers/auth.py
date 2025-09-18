@@ -3,14 +3,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 import logging
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from schemas.auth import LoginRequest, LoginResponse, TokenData
-from core.security import verify_password, create_access_token
-from models.user import User, UserRole  # SQLAlchemy user model
-from db import get_db
+from app.schemas.auth import LoginRequest, LoginResponse, TokenData
+from app.core.security import verify_password, create_access_token
+from app.models.user import User, UserRole  # SQLAlchemy user model
+from app.db import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/login", response_class=HTMLResponse)
 def login(request: Request):

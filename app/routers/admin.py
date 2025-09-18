@@ -13,13 +13,13 @@ from sqlalchemy.orm import Session, aliased
 from passlib.context import CryptContext
 
 # from core.config import settings
-from db import get_db
-from models.user import User, UserRole
-from models.task import Task, TaskStatus as ts
-from models.task_log import TaskLog, TaskStatus
-from core.security import hash_password,verify_password, get_current_user
-from utils.email_utils import send_email
-from utils.validators import validate_uuid
+from app.db import get_db
+from app.models.user import User, UserRole
+from app.models.task import Task, TaskStatus as ts
+from app.models.task_log import TaskLog, TaskStatus
+from app.core.security import hash_password,verify_password, get_current_user
+from app.utils.email_utils import send_email
+from app.utils.validators import validate_uuid
 
 # Optional Redis (for cache invalidation). If not configured, functions will be no-ops.
 # try:
@@ -29,7 +29,7 @@ from utils.validators import validate_uuid
 #     _redis_client = None
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="app/templates")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 creator = aliased(User)
 
@@ -479,6 +479,7 @@ def admin_dashboard(
     data = []
     all_employees = []
     all_tasks = []
+    logs_list = []
     for m in managers:
         employees = db.query(User).filter(
         User.created_by == m.id,
@@ -529,7 +530,6 @@ def admin_dashboard(
                 TaskStatus.completed: "completed"
             }
             task_logs = db.query(TaskLog).filter(TaskLog.task_id.in_(task_id)).order_by(TaskLog.created_at.desc()).all()
-            logs_list = []
             for log in task_logs:
                 logs_list.append({
                 "log_id": str(log.id),

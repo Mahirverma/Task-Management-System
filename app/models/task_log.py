@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
-from db import Base
+from app.db import Base
 
 
 class TaskStatus(enum.Enum):

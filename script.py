@@ -34,14 +34,13 @@ def create_superuser():
         sys.exit(1)
 
     superuser = User(
-        uuid = uuid.uuid4(),
         username=username,
         email=email,
         password_hash=hash_password(password),
         full_name=full_name or None,
         role=UserRole.admin,
         created_by = None,
-        create_at = datetime.now(),
+        created_at = datetime.now(),
         is_active=True
     )
 

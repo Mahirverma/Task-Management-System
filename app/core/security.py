@@ -4,11 +4,11 @@ from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from typing import Optional
 from passlib.context import CryptContext
-from core.config import settings
-from db import get_db
+from app.core.config import settings
+from app.db import get_db
 from sqlalchemy.orm import Session
-from models.user import User
-from schemas.user import UserResponse
+from app.models.user import User
+from app.schemas.user import UserResponse
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")

@@ -3,14 +3,14 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.exc import OperationalError, IntegrityError
 from sqlalchemy.orm import Session
-from db import get_db
-from models.user import User, UserRole
-from models.task import Task, TaskStatus
-from models.task_log import TaskLog
-from models.task_log import TaskStatus as log
-from schemas.task import TaskCreate
-from core.security import get_current_user
-from utils.validators import validate_uuid
+from app.db import get_db
+from app.models.user import User, UserRole
+from app.models.task import Task, TaskStatus
+from app.models.task_log import TaskLog
+from app.models.task_log import TaskStatus as log
+from app.schemas.task import TaskCreate
+from app.core.security import get_current_user
+from app.utils.validators import validate_uuid
 from datetime import datetime, date
 import uuid
 
@@ -26,7 +26,7 @@ employee_tasks_router = APIRouter(
     tags=["Employee Tasks"]
 )
 
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="app/templates")
 
 # ----------------- Endpoints -----------------
 
