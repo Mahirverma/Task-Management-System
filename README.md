@@ -44,7 +44,7 @@ It includes:
 ### 1. Clone repository
 ```bash
 git clone https://github.com/Mahirverma/Task-Managemt-System-.git
-cd task-management-system-
+cd Task-Management-System-
 ```
 
 ### 2. Creating virtual environment
