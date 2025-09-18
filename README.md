@@ -43,5 +43,37 @@ It includes:
 
 ### 1. Clone repository
 ```bash
-git clone https://github.com/your-username/task-management-system.git
-cd task-management-system
+git clone https://github.com/Mahirverma/Task-Managemt-System-.git
+cd task-management-system-
+```
+
+### 2. Creating virtual environment
+```bash
+python -m venv .venv
+.venv\scripts\activate
+```
+
+### 3. Installing dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Create .env file in the base folder
+```bash
+# Remember to update username,password and database name and do not use any special character in database password
+DATABASE_URL=postgresql+psycopg2://username:password@localhost:5432/db_name
+SECRET_KEY=supersecretkey
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+ALGORITHM=HS256
+```
+
+### 5. Run python script to create tables and super user
+```bash
+python script.py
+```
+
+### 6. Run the task management app
+```bash
+cd app
+uvicorn main:app --reload
+```
