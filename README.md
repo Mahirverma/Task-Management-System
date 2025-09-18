@@ -43,8 +43,8 @@ It includes:
 
 ### 1. Clone repository
 ```bash
-git clone https://github.com/Mahirverma/Task-Managemt-System.git
-cd Task-Managemt-System
+git clone https://github.com/Mahirverma/Task-Management-System.git
+cd Task-Management-System
 ```
 
 ### 2. Creating virtual environment
