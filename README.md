@@ -43,7 +43,7 @@ It includes:
 
 ### 1. Clone repository
 ```bash
-git clone https://github.com/your-username/task-management-system.git
+git clone https://github.com/Mahirverma/Task-Managemt-System-.git
 cd task-management-system
 ```
 
