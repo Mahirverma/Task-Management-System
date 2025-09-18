@@ -12,7 +12,6 @@ from models.user import User
 
 app = FastAPI(title="Task Management System API")
 
-Base.metadata.create_all(bind=engine)
 templates = Jinja2Templates(directory="templates")
 
 # Basic logging setup to help local debugging
